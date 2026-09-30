@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Administrator sign in | {{ school_name }}{% endblock %}
+{% block content %}
+<section class="form-page login-page">
+  <div class="form-card">
+    <span class="eyebrow">ELECTION MANAGEMENT</span>
+    <h1>Administrator sign in</h1>
+    <p class="muted">Sign in to manage positions, candidates, and election results.</p>
+    <form method="post" action="{{ url_for('admin_login_submit') }}" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="password">Administrator password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+      <button class="button button-primary button-full" type="submit">Sign in</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

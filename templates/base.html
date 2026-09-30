@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}{{ school_name }} | Student Elections{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="{{ url_for('index') }}"><span class="brand-mark">{{ school_name[0]|upper }}</span> {{ school_name }}</a>
+    <nav aria-label="Main navigation">
+      <a href="{{ url_for('index') }}">Home</a>
+      {% if session.get('is_admin') %}
+        <a href="{{ url_for('admin_dashboard') }}">Admin</a>
+        <form class="nav-form" method="post" action="{{ url_for('admin_logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="nav-link" type="submit">Log out</button>
+        </form>
+      {% else %}
+        <a href="{{ url_for('admin_login') }}">Administrator</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main class="page">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-list" role="status" aria-live="polite">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">{{ school_name }} <span>·</span> Anonymous student elections</footer>
+</body>
+</html>

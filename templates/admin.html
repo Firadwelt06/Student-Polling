@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Election dashboard | {{ school_name }}{% endblock %}
+{% block content %}
+<section class="dashboard">
+  <div class="dashboard-heading">
+    <div>
+      <span class="eyebrow">ADMINISTRATION</span>
+      <h1>Election dashboard</h1>
+      <p class="muted">Manage the ballot and monitor anonymous results.</p>
+    </div>
+    <form method="post" action="{{ url_for('toggle_election') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if is_open %}
+        <button class="button button-danger" type="submit">Close voting</button>
+      {% else %}
+        <button class="button button-primary" type="submit">Open voting</button>
+      {% endif %}
+    </form>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card"><span class="stat-label">ELECTION STATUS</span><strong class="status-text {{ 'text-open' if is_open else 'text-closed' }}">{{ "Open" if is_open else "Closed" }}</strong><span class="stat-caption">Ballot submissions {{ "enabled" if is_open else "paused" }}</span></div>
+    <div class="stat-card"><span class="stat-label">ANONYMOUS BALLOTS</span><strong class="stat-number">{{ total_ballots }}</strong><span class="stat-caption">Complete submissions</span></div>
+    <div class="stat-card"><span class="stat-label">POSITIONS</span><strong class="stat-number">{{ positions|length }}</strong><span class="stat-caption">Configured positions</span></div>
+  </div>
+  <section class="panel school-settings">
+    <div class="panel-heading">
+      <div><span class="eyebrow">SCHOOL BRANDING</span><h2>School name</h2></div>
+    </div>
+    <form class="inline-form" method="post" action="{{ url_for('update_school_name') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="visually-hidden" for="school-name">School name</label>
+      <input id="school-name" name="school_name" value="{{ school_name }}" maxlength="100" required>
+      <button class="button button-secondary" type="submit">Save name</button>
+    </form>
+    <p class="settings-help">This name appears across the student and administrator pages. Default: School Poll.</p>
+  </section>
+  <div class="dashboard-grid">
+    <section class="panel">
+      <div class="panel-heading"><div><span class="eyebrow">BALLOT SETUP</span><h2>Positions</h2></div></div>
+      {% if not is_open %}
+        <form class="inline-form" method="post" action="{{ url_for('add_position') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label class="visually-hidden" for="position-name">New position name</label>
+          <input id="position-name" name="name" maxlength="100" placeholder="e.g. Student Body President" required>
+          <button class="button button-secondary" type="submit">Add position</button>
+        </form>
+      {% else %}
+        <p class="notice">Close voting to edit the ballot.</p>
+      {% endif %}
+      {% if positions %}
+        <ul class="management-list">
+          {% for position in positions %}
+            <li>
+              <div><strong>{{ position.name }}</strong><span>{{ position.vote_count }} vote{{ "" if position.vote_count == 1 else "s" }}</span></div>
+              {% if not is_open %}
+                <form method="post" action="{{ url_for('delete_position', position_id=position.id) }}" onsubmit="return confirm('Delete this position and its candidates?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="text-button text-danger" type="submit">Delete</button>
+                </form>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-state">No positions yet. Add one to start building the ballot.</p>
+      {% endif %}
+    </section>
+    <section class="panel">
+      <div class="panel-heading"><div><span class="eyebrow">BALLOT SETUP</span><h2>Candidates</h2></div></div>
+      {% if not is_open and positions %}
+        <form class="stack-form compact-form" method="post" enctype="multipart/form-data" action="{{ url_for('add_candidate') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label for="candidate-name">Candidate name</label>
+          <input id="candidate-name" name="name" maxlength="100" placeholder="Enter candidate name" required>
+          <label for="candidate-position">Position</label>
+          <select id="candidate-position" name="position_id" required>
+            {% for position in positions %}
+              <option value="{{ position.id }}">{{ position.name }}</option>
+            {% endfor %}
+          </select>
+          <label for="candidate-photo">Candidate photo <span class="optional-label">Optional · square crop</span></label>
+          <input id="candidate-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp">
+          <p class="form-hint">JPEG, PNG, or WebP · up to 5 MB · displayed as a square portrait.</p>
+          <button class="button button-secondary" type="submit">Add candidate</button>
+        </form>
+      {% elif is_open %}
+        <p class="notice">Close voting to edit the ballot.</p>
+      {% else %}
+        <p class="empty-state">Add a position before adding candidates.</p>
+      {% endif %}
+      {% if candidates %}
+        <ul class="management-list">
+          {% for candidate in candidates %}
+            <li class="candidate-management-item">
+              <div class="candidate-summary">
+                {% if candidate.photo_path %}
+                  <img class="candidate-avatar candidate-avatar-small" src="{{ url_for('candidate_photo', filename=candidate.photo_path) }}" alt="{{ candidate.name }}">
+                {% else %}
+                  <span class="candidate-avatar candidate-avatar-small candidate-avatar-fallback" aria-label="No photo for {{ candidate.name }}">{{ candidate.name[0]|upper }}</span>
+                {% endif %}
+                <div><strong>{{ candidate.name }}</strong><span>{{ candidate.position_name }}</span></div>
+              </div>
+              {% if not is_open %}
+                <div class="candidate-actions">
+                  <form class="photo-edit-form" method="post" enctype="multipart/form-data" action="{{ url_for('update_candidate_photo', candidate_id=candidate.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <label class="visually-hidden" for="photo-{{ candidate.id }}">Choose photo for {{ candidate.name }}</label>
+                    <input id="photo-{{ candidate.id }}" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required>
+                    <button class="text-button" type="submit">Upload photo</button>
+                  </form>
+                  {% if candidate.photo_path %}
+                    <form method="post" action="{{ url_for('delete_candidate_photo', candidate_id=candidate.id) }}" onsubmit="return confirm('Remove this candidate photo?');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="text-button" type="submit">Remove photo</button>
+                    </form>
+                  {% endif %}
+                  <form method="post" action="{{ url_for('delete_candidate', candidate_id=candidate.id) }}" onsubmit="return confirm('Delete this candidate?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="text-button text-danger" type="submit">Delete</button>
+                  </form>
+                </div>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </section>
+  </div>
+  <section class="panel reset-panel">
+    <div class="panel-heading"><div><span class="eyebrow">NEW ELECTION</span><h2>Reset election data</h2></div></div>
+    <p class="reset-warning">A reset permanently deletes the selected election data and closes voting. Back up the database first if you may need the current results.</p>
+    <form class="reset-form" method="post" action="{{ url_for('reset_election') }}" onsubmit="return confirm('This permanently deletes the data selected below and closes voting. Make sure you have a backup. Continue?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="reset-type">Choose what to reset</label>
+      <select id="reset-type" name="reset_type" required>
+        <option value="votes">Clear votes; keep school name, positions, and candidates</option>
+        <option value="candidates">Clear votes and candidates; keep positions and school name</option>
+        <option value="all">Delete all election data, positions, and school name</option>
+      </select>
+      <button class="button button-danger" type="submit">Reset election</button>
+    </form>
+  </section>
+  <section class="panel results-panel">
+    <div class="panel-heading"><div><span class="eyebrow">LIVE TALLY</span><h2>Results by position</h2></div><span class="results-private">Administrator view</span></div>
+    {% if results %}
+      <div class="results-grid">
+        {% for position in results %}
+          <article class="result-card">
+            <div class="result-title"><h3>{{ position.name }}</h3><span>{{ position.total }} total</span></div>
+            {% for candidate in position.candidates %}
+              <div class="result-candidate">
+                <div class="result-label">
+                  <span class="result-candidate-name">
+                    {% if candidate.photo_path %}
+                      <img class="candidate-avatar candidate-avatar-tiny" src="{{ url_for('candidate_photo', filename=candidate.photo_path) }}" alt="">
+                    {% else %}
+                      <span class="candidate-avatar candidate-avatar-tiny candidate-avatar-fallback" aria-hidden="true">{{ candidate.name[0]|upper }}</span>
+                    {% endif %}
+                    {{ candidate.name }}
+                  </span>
+                  <strong>{{ candidate.votes }}</strong>
+                </div>
+                <div class="bar-track"><div class="bar-fill" style="width: {{ candidate.percent }}%"></div></div>
+              </div>
+            {% endfor %}
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-state">Results will appear when positions and candidates are added.</p>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}

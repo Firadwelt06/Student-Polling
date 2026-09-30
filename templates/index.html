@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ school_name }} | Student Elections{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <span class="eyebrow">STUDENT ELECTION</span>
+    <h1>Your voice.<br><span>One school.</span></h1>
+    <p>Choose a candidate for each position and submit your selections together in one anonymous ballot.</p>
+    {% if is_open %}
+      <a class="button button-primary" href="{{ url_for('vote') }}">Start voting <span aria-hidden="true">→</span></a>
+    {% else %}
+      <div class="status-pill status-closed"><span></span> Voting is not open</div>
+      <p class="muted">Check back when the election administrator opens the ballot.</p>
+    {% endif %}
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    <div class="art-card">
+      <div class="art-top"><span class="art-dot"></span><span class="art-dot"></span><span class="art-dot"></span></div>
+      <div class="art-line art-line-wide"></div>
+      <div class="art-choice"><span class="check">✓</span><span class="art-line"></span></div>
+      <div class="art-choice"><span class="check check-empty"></span><span class="art-line art-line-short"></span></div>
+      <div class="art-choice"><span class="check check-empty"></span><span class="art-line"></span></div>
+      <div class="art-submit">SUBMIT BALLOT <span>→</span></div>
+    </div>
+    <div class="art-orbit orbit-one"></div>
+    <div class="art-orbit orbit-two"></div>
+    <div class="art-spark">✳</div>
+  </div>
+</section>
+<section class="feature-row">
+  <article class="feature-card"><span class="feature-icon">◉</span><h2>Private by design</h2><p>No names or student details are requested or stored with ballots.</p></article>
+  <article class="feature-card"><span class="feature-icon">✓</span><h2>One complete ballot</h2><p>Make your selections across all positions before submitting once.</p></article>
+  <article class="feature-card"><span class="feature-icon">▥</span><h2>Clear results</h2><p>Election administrators can follow vote counts and candidate totals.</p></article>
+</section>
+{% endblock %}

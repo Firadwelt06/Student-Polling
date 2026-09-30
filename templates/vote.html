@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Cast your ballot | {{ school_name }}{% endblock %}
+{% block content %}
+<section class="form-page">
+  <a class="back-link" href="{{ url_for('index') }}">← Back to home</a>
+  {% if not is_open %}
+    <div class="form-card message-card">
+      <span class="eyebrow">BALLOT</span>
+      <h1>Voting is closed</h1>
+      <p class="muted">The election administrator has not opened voting yet.</p>
+    </div>
+  {% elif not positions %}
+    <div class="form-card message-card">
+      <span class="eyebrow">BALLOT</span>
+      <h1>Ballot unavailable</h1>
+      <p class="muted">The administrator has not configured any positions with candidates yet.</p>
+    </div>
+  {% else %}
+    <div class="form-heading">
+      <span class="eyebrow">YOUR BALLOT</span>
+      <h1>Make your choices</h1>
+      <p>Choose one candidate for each position. Your selections are submitted together.</p>
+    </div>
+    <form class="ballot-form" method="post" action="{{ url_for('vote') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for position in positions %}
+        <fieldset class="position-card">
+          <legend><span class="position-number">{{ "%02d"|format(loop.index) }}</span>{{ position.name }}</legend>
+          {% for candidate in candidates.get(position.id, []) %}
+            <label class="candidate-option">
+              <input type="radio" name="position_{{ position.id }}" value="{{ candidate.id }}" required>
+              <span class="radio-indicator"></span>
+              {% if candidate.photo_path %}
+                <img class="candidate-avatar candidate-avatar-ballot" src="{{ url_for('candidate_photo', filename=candidate.photo_path) }}" alt="">
+              {% else %}
+                <span class="candidate-avatar candidate-avatar-ballot candidate-avatar-fallback" aria-hidden="true">{{ candidate.name[0]|upper }}</span>
+              {% endif %}
+              <span>{{ candidate.name }}</span>
+            </label>
+          {% endfor %}
+        </fieldset>
+      {% endfor %}
+      <div class="submit-area">
+        <p>Your ballot is anonymous. Please review your choices before submitting.</p>
+        <button class="button button-primary" type="submit">Submit my ballot <span aria-hidden="true">→</span></button>
+      </div>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}
