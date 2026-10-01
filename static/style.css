@@ -74,7 +74,7 @@ h1, h2, h3 { font-family: "Segoe UI", Arial, sans-serif; }
 .position-card { margin: 0; }
 .position-card legend { display: flex; align-items: center; gap: 12px; width: 100%; padding: 0 0 18px; font: 700 16px "Segoe UI", Arial, sans-serif; }
 .position-number { display: grid; place-items: center; width: 28px; height: 28px; color: var(--green); border-radius: 7px; background: var(--green-light); font-size: 10px; }
-.candidate-option { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 13px; border: 1px solid #edf0ed; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.candidate-option { display: flex; align-items: center; gap: 12px; min-height: 88px; padding: 0 13px; border: 1px solid #edf0ed; border-radius: 8px; cursor: pointer; font-size: 14px; }
 .candidate-option + .candidate-option { margin-top: 8px; }
 .candidate-option:has(input:checked) { border-color: #86b69a; background: #f5faf6; }
 .candidate-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -136,7 +136,7 @@ input:focus, select:focus { border-color: #71a987; box-shadow: 0 0 0 3px #e7f3ea
 .candidate-avatar-fallback { color: var(--green-dark); font-weight: 700; }
 .candidate-avatar-small { width: 38px; height: 38px; font-size: 14px !important; }
 .candidate-avatar-tiny { width: 24px; height: 24px; font-size: 9px !important; }
-.candidate-avatar-ballot { width: 42px; height: 42px; font-size: 15px !important; }
+.candidate-avatar-ballot { width: 80px; height: 80px; font-size: 26px !important; }
 .candidate-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; width: 100%; padding-left: 48px; }
 .photo-edit-form { display: flex; align-items: center; gap: 4px; }
 .photo-edit-form input[type="file"] { width: 160px; height: auto; padding: 2px; border: 0; font-size: 10px; }
@@ -151,7 +151,6 @@ input:focus, select:focus { border-color: #71a987; box-shadow: 0 0 0 3px #e7f3ea
 .reset-form { display: flex; align-items: end; gap: 10px; }
 .reset-form label { display: grid; flex: 1; gap: 6px; font-size: 11px; font-weight: 700; }
 .result-candidate-name { display: inline-flex; align-items: center; gap: 8px; }
-.candidate-option { min-height: 60px; }
 .results-private { color: var(--muted); font-size: 10px; }
 .results-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .result-card { padding: 16px; border: 1px solid #edf0ed; border-radius: 9px; }
