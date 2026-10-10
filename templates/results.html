@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Live tally | {{ school_name }}{% endblock %}
+{% block content %}
+<section class="results-page">
+  <a class="back-link" href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>
+  <div class="results-heading">
+    <div>
+      <span class="eyebrow">LIVE TALLY</span>
+      <h1>Results by position</h1>
+      <p class="muted">Vote totals refresh automatically every few seconds.</p>
+    </div>
+    <span class="results-private">Administrator view</span>
+  </div>
+  <p id="refresh-status" class="refresh-status" aria-live="polite">Live updates are on.</p>
+  {% include "results_content.html" %}
+</section>
+<script>
+  (() => {
+    const status = document.getElementById("refresh-status");
+    const refreshUrl = {{ url_for("admin_results_live")|tojson }};
+
+    async function refreshResults() {
+      try {
+        const response = await fetch(refreshUrl, { cache: "no-store" });
+        if (!response.ok || response.redirected) {
+          throw new Error(`Results refresh failed (${response.status}).`);
+        }
+        const html = await response.text();
+        const template = document.createElement("template");
+        template.innerHTML = html;
+        const updatedContent = template.content.querySelector("#results-content");
+        const currentContent = document.getElementById("results-content");
+        if (!updatedContent || !currentContent) {
+          throw new Error("Results refresh returned an invalid response.");
+        }
+        currentContent.replaceWith(updatedContent);
+        status.textContent = "Live updates are on.";
+      } catch (error) {
+        console.error(error);
+        status.textContent = "Could not refresh the tally. Retrying shortly.";
+      } finally {
+        window.setTimeout(refreshResults, 3000);
+      }
+    }
+
+    window.setTimeout(refreshResults, 3000);
+  })();
+</script>
+{% endblock %}

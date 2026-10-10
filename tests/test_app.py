@@ -53,6 +53,11 @@ class PollingAppTests(unittest.TestCase):
         self.assertEqual(dashboard.status_code, 200)
         self.assertIn(b"1</strong>", dashboard.data)
         self.assertIn(b"Jordan", dashboard.data)
+        self.assertNotIn(b"Results by position", dashboard.data)
+        results = self.client.get("/admin/results")
+        self.assertEqual(results.status_code, 200)
+        self.assertIn(b"Results by position", results.data)
+        self.assertIn(b"Jordan", results.data)
         with self.app.app_context():
             from flask import current_app
             import sqlite3
@@ -62,6 +67,77 @@ class PollingAppTests(unittest.TestCase):
             connection.close()
         self.assertNotIn("voter_name", columns)
         self.assertNotIn("student_id", columns)
+
+    def test_live_tally_refreshes_and_renaming_keeps_votes(self):
+        self.sign_in()
+        self.client.post("/admin/positions", data={"name": "President"})
+        self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
+        self.client.post("/admin/candidates", data={"name": "Jordan", "position_id": "1"})
+        self.client.post("/admin/election/toggle")
+        self.client.post("/vote", data={"position_1": "1"})
+
+        live_tally = self.client.get("/admin/results/live")
+        self.assertIn(b"ANONYMOUS BALLOTS", live_tally.data)
+        self.assertIn(b">1</strong>", live_tally.data)
+        self.assertIn(b"1 total", live_tally.data)
+        self.assertIn(b"Alex", live_tally.data)
+
+        self.client.post("/admin/election/toggle")
+        self.client.post("/admin/positions/1", data={"name": "Student President"})
+        self.client.post("/admin/candidates/1", data={"name": "Alex Rivera"})
+        updated_tally = self.client.get("/admin/results/live")
+        self.assertIn(b"Student President", updated_tally.data)
+        self.assertIn(b"Alex Rivera", updated_tally.data)
+        self.assertIn(b">1</strong>", updated_tally.data)
+        self.assertIn(b"1 total", updated_tally.data)
+
+    def test_live_tally_requires_admin_login(self):
+        page = self.client.get("/admin/results")
+        live_data = self.client.get("/admin/results/live")
+        self.assertEqual(page.status_code, 302)
+        self.assertIn("/admin/login", page.location)
+        self.assertEqual(live_data.status_code, 302)
+        self.assertIn("/admin/login", live_data.location)
+
+    def test_admin_can_move_candidate_while_voting_is_closed(self):
+        self.sign_in()
+        self.client.post("/admin/positions", data={"name": "President"})
+        self.client.post("/admin/positions", data={"name": "Treasurer"})
+        self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
+
+        response = self.client.post("/admin/candidates/1/move", data={"position_id": "2"})
+        self.assertEqual(response.status_code, 302)
+        dashboard = self.client.get("/admin")
+        self.assertIn(b"Alex", dashboard.data)
+        self.assertIn(b"Treasurer", dashboard.data)
+        with self.app.app_context():
+            from flask import current_app
+            import sqlite3
+
+            connection = sqlite3.connect(current_app.config["DATABASE"])
+            position_id = connection.execute(
+                "SELECT position_id FROM candidates WHERE id = 1"
+            ).fetchone()[0]
+            connection.close()
+        self.assertEqual(position_id, 2)
+
+    def test_admin_cannot_move_candidate_with_recorded_votes(self):
+        self.sign_in()
+        self.client.post("/admin/positions", data={"name": "President"})
+        self.client.post("/admin/positions", data={"name": "Treasurer"})
+        self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
+        self.client.post("/admin/candidates", data={"name": "Jordan", "position_id": "2"})
+        self.client.post("/admin/election/toggle")
+        self.client.post("/vote", data={"position_1": "1", "position_2": "2"})
+        self.client.post("/admin/election/toggle")
+
+        response = self.client.post("/admin/candidates/1/move", data={"position_id": "2"})
+        self.assertEqual(response.status_code, 302)
+        dashboard = self.client.get("/admin")
+        self.assertIn(b"candidate with recorded votes cannot be moved", dashboard.data)
+        tally = self.client.get("/admin/results/live")
+        self.assertIn(b"President", tally.data)
+        self.assertIn(b"Alex", tally.data)
 
     def test_ballot_requires_every_position_and_rejects_wrong_position_candidate(self):
         self.sign_in()

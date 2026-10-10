@@ -1,0 +1,30 @@
+<div id="results-content" class="results-content">
+  <div class="results-ballots"><span>ANONYMOUS BALLOTS</span><strong>{{ total_ballots }}</strong></div>
+  {% if results %}
+    <div class="results-grid">
+      {% for position in results %}
+        <article class="result-card">
+          <div class="result-title"><h2>{{ position.name }}</h2><span>{{ position.total }} total</span></div>
+          {% for candidate in position.candidates %}
+            <div class="result-candidate">
+              <div class="result-label">
+                <span class="result-candidate-name">
+                  {% if candidate.photo_path %}
+                    <img class="candidate-avatar candidate-avatar-tiny" src="{{ url_for('candidate_photo', filename=candidate.photo_path) }}" alt="">
+                  {% else %}
+                    <span class="candidate-avatar candidate-avatar-tiny candidate-avatar-fallback" aria-hidden="true">{{ candidate.name[0]|upper }}</span>
+                  {% endif %}
+                  {{ candidate.name }}
+                </span>
+                <strong>{{ candidate.votes }}</strong>
+              </div>
+              <div class="bar-track"><div class="bar-fill" style="width: {{ candidate.percent }}%"></div></div>
+            </div>
+          {% endfor %}
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="empty-state">Results will appear when positions and candidates are added.</p>
+  {% endif %}
+</div>

@@ -101,6 +101,7 @@ input:focus, select:focus { border-color: #71a987; box-shadow: 0 0 0 3px #e7f3ea
 .hero-copy .status-pill + .muted { margin-top: 13px; }
 .dashboard { display: grid; gap: 19px; }
 .dashboard-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.dashboard-actions { display: flex; align-items: center; gap: 9px; }
 .dashboard-heading h1 { font-size: 31px; }
 .dashboard-heading p { margin-bottom: 0; }
 .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
@@ -126,6 +127,7 @@ input:focus, select:focus { border-color: #71a987; box-shadow: 0 0 0 3px #e7f3ea
 .form-hint { margin: -5px 0 2px; }
 .management-list { padding: 0; margin: 15px 0 0; list-style: none; }
 .management-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; border-top: 1px solid #eff2ef; }
+.management-list .position-management-item { align-items: flex-start; flex-direction: column; }
 .management-list .candidate-management-item { align-items: flex-start; flex-direction: column; }
 .management-list li > div { display: grid; gap: 4px; min-width: 0; }
 .management-list li .candidate-summary { display: flex; align-items: center; gap: 10px; }
@@ -138,6 +140,13 @@ input:focus, select:focus { border-color: #71a987; box-shadow: 0 0 0 3px #e7f3ea
 .candidate-avatar-tiny { width: 24px; height: 24px; font-size: 9px !important; }
 .candidate-avatar-ballot { width: 80px; height: 80px; font-size: 26px !important; }
 .candidate-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; width: 100%; padding-left: 48px; }
+.management-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; width: 100%; }
+.management-edit-form { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 180px; }
+.management-edit-form input { min-width: 0; height: 34px; font-size: 11px; }
+.management-edit-form select { min-width: 0; height: 34px; font-size: 11px; }
+.management-edit-form .button { min-height: 34px; padding: 0 10px; font-size: 11px; }
+.candidate-name-form { flex-basis: 100%; }
+.candidate-position-form { flex-basis: 100%; }
 .photo-edit-form { display: flex; align-items: center; gap: 4px; }
 .photo-edit-form input[type="file"] { width: 160px; height: auto; padding: 2px; border: 0; font-size: 10px; }
 .photo-edit-form input[type="file"]::file-selector-button { padding: 5px; border: 1px solid var(--line); border-radius: 4px; background: white; font-size: 10px; cursor: pointer; }
@@ -145,13 +154,22 @@ input:focus, select:focus { border-color: #71a987; box-shadow: 0 0 0 3px #e7f3ea
 .text-button { padding: 4px; border: 0; background: transparent; cursor: pointer; font-size: 11px; font-weight: 700; }
 .text-danger { color: var(--red); }
 .notice, .empty-state { margin: 0; padding: 11px 12px; color: var(--muted); border-radius: 7px; background: #f7f9f7; font-size: 12px; line-height: 1.6; }
-.results-panel { min-width: 0; }
 .reset-panel .panel-heading { margin-bottom: 10px; }
 .reset-warning { margin: 0 0 15px; color: #805342; font-size: 12px; line-height: 1.55; }
 .reset-form { display: flex; align-items: end; gap: 10px; }
 .reset-form label { display: grid; flex: 1; gap: 6px; font-size: 11px; font-weight: 700; }
 .result-candidate-name { display: inline-flex; align-items: center; gap: 8px; }
 .results-private { color: var(--muted); font-size: 10px; }
+.results-page { display: grid; gap: 18px; max-width: 900px; margin: 12px auto 0; }
+.results-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.results-heading h1 { margin-bottom: 8px; font-size: 31px; letter-spacing: -1px; }
+.results-heading p { margin: 0; }
+.refresh-status { margin: 0; color: var(--muted); font-size: 11px; }
+.results-ballots { display: flex; align-items: center; justify-content: space-between; padding: 15px 18px; border: 1px solid var(--line); border-radius: 9px; background: white; }
+.results-ballots span { color: #7b8980; font-size: 9px; font-weight: 700; letter-spacing: 1.1px; }
+.results-ballots strong { font-size: 21px; }
+.results-content { display: grid; gap: 14px; }
+.results-content .result-title h2 { margin: 0; font-size: 15px; }
 .results-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .result-card { padding: 16px; border: 1px solid #edf0ed; border-radius: 9px; }
 .result-title { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #edf0ed; }
@@ -181,6 +199,8 @@ input:focus, select:focus { border-color: #71a987; box-shadow: 0 0 0 3px #e7f3ea
   .feature-card { padding: 18px; }
   .feature-icon { margin-bottom: 10px; }
   .dashboard-heading { align-items: flex-start; }
+  .dashboard-actions { flex-wrap: wrap; }
+  .results-heading { align-items: flex-start; flex-direction: column; }
   .dashboard-heading h1 { font-size: 25px; }
   .stats-row { grid-template-columns: 1fr; gap: 9px; }
   .stat-card { grid-template-columns: 1fr 1fr; align-items: center; }

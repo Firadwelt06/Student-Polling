@@ -348,8 +348,27 @@ def create_app(test_config=None):
             is_open=election_open(db),
             positions=positions,
             candidates=candidates,
-            results=results_data(db),
             total_ballots=total_ballots,
+        )
+
+    @app.get("/admin/results")
+    @login_required
+    def admin_results():
+        db = get_db()
+        return render_template(
+            "results.html",
+            results=results_data(db),
+            total_ballots=db.execute("SELECT COUNT(DISTINCT ballot_id) FROM votes").fetchone()[0],
+        )
+
+    @app.get("/admin/results/live")
+    @login_required
+    def admin_results_live():
+        db = get_db()
+        return render_template(
+            "results_content.html",
+            results=results_data(db),
+            total_ballots=db.execute("SELECT COUNT(DISTINCT ballot_id) FROM votes").fetchone()[0],
         )
 
     @app.post("/admin/school-name")
@@ -435,6 +454,35 @@ def create_app(test_config=None):
             flash("A position with that name already exists.", "error")
         return redirect(url_for("admin_dashboard"))
 
+    @app.post("/admin/positions/<int:position_id>")
+    @login_required
+    def update_position(position_id):
+        closed_response = require_closed_election()
+        if closed_response:
+            return closed_response
+        db = get_db()
+        name = request.form.get("name", "").strip()
+        if not name or len(name) > 100:
+            db.rollback()
+            flash("Position names must be between 1 and 100 characters.", "error")
+            return redirect(url_for("admin_dashboard"))
+        if db.execute("SELECT 1 FROM positions WHERE id = ?", (position_id,)).fetchone() is None:
+            db.rollback()
+            abort(404)
+        try:
+            db.execute("UPDATE positions SET name = ? WHERE id = ?", (name, position_id))
+            db.commit()
+        except sqlite3.IntegrityError:
+            db.rollback()
+            flash("A position with that name already exists.", "error")
+        except sqlite3.Error:
+            db.rollback()
+            app.logger.exception("Could not update position")
+            abort(500)
+        else:
+            flash("Position name updated.", "success")
+        return redirect(url_for("admin_dashboard"))
+
     @app.post("/admin/candidates")
     @login_required
     def add_candidate():
@@ -473,6 +521,82 @@ def create_app(test_config=None):
             delete_candidate_photos([photo_path])
             app.logger.exception("Could not add candidate")
             abort(500)
+        return redirect(url_for("admin_dashboard"))
+
+    @app.post("/admin/candidates/<int:candidate_id>")
+    @login_required
+    def update_candidate(candidate_id):
+        closed_response = require_closed_election()
+        if closed_response:
+            return closed_response
+        db = get_db()
+        name = request.form.get("name", "").strip()
+        if not name or len(name) > 100:
+            db.rollback()
+            flash("Candidate names must be between 1 and 100 characters.", "error")
+            return redirect(url_for("admin_dashboard"))
+        if db.execute("SELECT 1 FROM candidates WHERE id = ?", (candidate_id,)).fetchone() is None:
+            db.rollback()
+            abort(404)
+        try:
+            db.execute("UPDATE candidates SET name = ? WHERE id = ?", (name, candidate_id))
+            db.commit()
+        except sqlite3.IntegrityError:
+            db.rollback()
+            flash("That candidate is already listed for this position.", "error")
+        except sqlite3.Error:
+            db.rollback()
+            app.logger.exception("Could not update candidate")
+            abort(500)
+        else:
+            flash("Candidate name updated.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.post("/admin/candidates/<int:candidate_id>/move")
+    @login_required
+    def move_candidate(candidate_id):
+        closed_response = require_closed_election()
+        if closed_response:
+            return closed_response
+        db = get_db()
+        position_id = request.form.get("position_id", type=int)
+        candidate = db.execute(
+            "SELECT position_id FROM candidates WHERE id = ?", (candidate_id,)
+        ).fetchone()
+        if candidate is None:
+            db.rollback()
+            abort(404)
+        if position_id is None or db.execute(
+            "SELECT 1 FROM positions WHERE id = ?", (position_id,)
+        ).fetchone() is None:
+            db.rollback()
+            flash("Select a valid position.", "error")
+            return redirect(url_for("admin_dashboard"))
+        if candidate["position_id"] == position_id:
+            db.rollback()
+            flash("That candidate is already in this position.", "error")
+            return redirect(url_for("admin_dashboard"))
+        if db.execute(
+            "SELECT 1 FROM votes WHERE candidate_id = ? LIMIT 1", (candidate_id,)
+        ).fetchone():
+            db.rollback()
+            flash("A candidate with recorded votes cannot be moved. Reset votes before changing their position.", "error")
+            return redirect(url_for("admin_dashboard"))
+        try:
+            db.execute(
+                "UPDATE candidates SET position_id = ? WHERE id = ?",
+                (position_id, candidate_id),
+            )
+            db.commit()
+        except sqlite3.IntegrityError:
+            db.rollback()
+            flash("That candidate is already listed for the selected position.", "error")
+        except sqlite3.Error:
+            db.rollback()
+            app.logger.exception("Could not move candidate to another position")
+            abort(500)
+        else:
+            flash("Candidate moved to the selected position.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.post("/admin/candidates/<int:candidate_id>/photo")

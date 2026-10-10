@@ -55,9 +55,9 @@ Create a private `.env` file with `ADMIN_PASSWORD` and `SECRET_KEY` values first
 3. Add all election positions, then add candidates under each position. Ballot changes are permitted only while voting is closed.
 4. Select **Open voting** when the ballot is ready. The ballot requires one candidate selection for every position.
 5. Share the host's local network address with students.
-6. Select **Close voting** to stop submissions. The dashboard visualizes counts by candidate and position.
+6. Open **Live tally** from the administrator navigation to view counts by candidate and position. The tally refreshes automatically every three seconds and remains administrator-only.
 
-Positions or candidates with recorded votes cannot be deleted, which protects the published tally. Close voting before making any ballot changes.
+Close voting before changing the ballot. Administrators can rename positions and candidates or move candidates to another position while voting is closed. Renames preserve existing vote counts, while candidates with recorded votes cannot be moved or deleted, which protects the published tally.
 
 ## Preparing for another election
 
