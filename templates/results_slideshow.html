@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Live tally slideshow | {{ school_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="results-slideshow-body">
+  <div class="slideshow-shell">
+    <header class="slideshow-header">
+      <div>
+        <span class="eyebrow">LIVE TALLY</span>
+        <h1>{{ school_name }}</h1>
+      </div>
+      <div class="slideshow-meta">
+        <span id="slide-indicator">1 / {{ results|length if results else 1 }}</span>
+        <a class="slideshow-exit" href="{{ url_for('admin_results') }}">Back to tally</a>
+      </div>
+    </header>
+
+    {% if results %}
+      <div class="slideshow-stage" id="slideshow-stage">
+        {% for position in results %}
+          <article class="slideshow-slide {% if loop.first %}is-active{% endif %}" data-index="{{ loop.index0 }}">
+            <div class="slideshow-position-row">
+              <div>
+                <span class="slideshow-position-tag">Position {{ loop.index }}</span>
+                <h2>{{ position.name }}</h2>
+              </div>
+              <span class="slideshow-total">{{ position.total }} total</span>
+            </div>
+            <div class="slideshow-candidates">
+              {% for candidate in position.candidates %}
+                <div class="slideshow-candidate">
+                  <div class="slideshow-candidate-header">
+                    {% if candidate.photo_path %}
+                      <img class="candidate-avatar candidate-avatar-ballot" src="{{ url_for('candidate_photo', filename=candidate.photo_path) }}" alt="{{ candidate.name }}">
+                    {% else %}
+                      <span class="candidate-avatar candidate-avatar-ballot candidate-avatar-fallback" aria-label="No photo for {{ candidate.name }}">{{ candidate.name[0]|upper }}</span>
+                    {% endif %}
+                    <div class="slideshow-candidate-copy">
+                      <span class="slideshow-candidate-name">{{ candidate.name }}</span>
+                      <strong>{{ candidate.votes }}</strong>
+                    </div>
+                  </div>
+                  <div class="slideshow-meter">
+                    <span style="width: {{ candidate.percent }}%"></span>
+                  </div>
+                  <div class="slideshow-candidate-foot">
+                    <span>{{ candidate.percent }}%</span>
+                    <span>{{ candidate.votes }} vote{% if candidate.votes != 1 %}s{% endif %}</span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+      <div class="slideshow-progress" aria-hidden="true">
+        <span id="slideshow-progress-bar"></span>
+      </div>
+    {% else %}
+      <div class="slideshow-empty">
+        <div class="slideshow-empty-card">
+          <span class="eyebrow">WAITING FOR RESULTS</span>
+          <h2>No live votes yet</h2>
+          <p>Results will appear here as soon as positions and candidates are added and votes are recorded.</p>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <script>
+    (() => {
+      const slides = [...document.querySelectorAll('.slideshow-slide')];
+      const indicator = document.getElementById('slide-indicator');
+      const progressBar = document.getElementById('slideshow-progress-bar');
+      const slideIntervalMs = 6000;
+
+      if (!slides.length) {
+        return;
+      }
+
+      let activeIndex = 0;
+
+      function showSlide(index) {
+        activeIndex = (index + slides.length) % slides.length;
+        slides.forEach((slide, slideIndex) => {
+          slide.classList.toggle('is-active', slideIndex === activeIndex);
+        });
+        if (indicator) {
+          indicator.textContent = `${activeIndex + 1} / ${slides.length}`;
+        }
+        if (progressBar) {
+          progressBar.style.width = '0%';
+          requestAnimationFrame(() => {
+            progressBar.style.transition = `width ${slideIntervalMs}ms linear`;
+            progressBar.style.width = '100%';
+          });
+        }
+      }
+
+      showSlide(0);
+      setInterval(() => {
+        showSlide(activeIndex + 1);
+      }, slideIntervalMs);
+      window.setTimeout(() => window.location.reload(), 15000);
+    })();
+  </script>
+</body>
+</html>

@@ -91,6 +91,20 @@ class PollingAppTests(unittest.TestCase):
         self.assertIn(b">1</strong>", updated_tally.data)
         self.assertIn(b"1 total", updated_tally.data)
 
+    def test_fullscreen_slideshow_route_is_available(self):
+        self.sign_in()
+        self.client.post("/admin/positions", data={"name": "President"})
+        self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
+        self.client.post("/admin/candidates", data={"name": "Jordan", "position_id": "1"})
+        self.client.post("/admin/election/toggle")
+        self.client.post("/vote", data={"position_1": "1"})
+
+        slideshow = self.client.get("/admin/results/slideshow")
+        self.assertEqual(slideshow.status_code, 200)
+        self.assertIn(b"LIVE TALLY", slideshow.data)
+        self.assertIn(b"Position 1", slideshow.data)
+        self.assertIn(b"Alex", slideshow.data)
+
     def test_live_tally_requires_admin_login(self):
         page = self.client.get("/admin/results")
         live_data = self.client.get("/admin/results/live")

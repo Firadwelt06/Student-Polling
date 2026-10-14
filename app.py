@@ -361,6 +361,16 @@ def create_app(test_config=None):
             total_ballots=db.execute("SELECT COUNT(DISTINCT ballot_id) FROM votes").fetchone()[0],
         )
 
+    @app.get("/admin/results/slideshow")
+    @login_required
+    def admin_results_slideshow():
+        db = get_db()
+        return render_template(
+            "results_slideshow.html",
+            results=results_data(db),
+            total_ballots=db.execute("SELECT COUNT(DISTINCT ballot_id) FROM votes").fetchone()[0],
+        )
+
     @app.get("/admin/results/live")
     @login_required
     def admin_results_live():

@@ -9,7 +9,10 @@
       <h1>Results by position</h1>
       <p class="muted">Vote totals refresh automatically every few seconds.</p>
     </div>
-    <span class="results-private">Administrator view</span>
+    <div class="results-actions">
+      <a class="button button-secondary" href="{{ url_for('admin_results_slideshow') }}" target="_blank" rel="noopener">Open fullscreen slideshow</a>
+      <span class="results-private">Administrator view</span>
+    </div>
   </div>
   <p id="refresh-status" class="refresh-status" aria-live="polite">Live updates are on.</p>
   {% include "results_content.html" %}
