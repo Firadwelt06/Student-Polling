@@ -20,10 +20,10 @@
       </div>
     </header>
 
-    {% if results %}
-      <div class="slideshow-stage" id="slideshow-stage">
+    <div class="slideshow-stage" id="slideshow-stage">
+      {% if results %}
         {% for position in results %}
-          <article class="slideshow-slide {% if loop.first %}is-active{% endif %}" data-index="{{ loop.index0 }}">
+          <article class="slideshow-slide {% if loop.first %}is-active{% endif %}" data-index="{{ loop.index0 }}" data-position-id="{{ position.id }}">
             <div class="slideshow-position-row">
               <div>
                 <span class="slideshow-position-tag">Position {{ loop.index }}</span>
@@ -57,44 +57,57 @@
             </div>
           </article>
         {% endfor %}
-      </div>
-      <div class="slideshow-progress" aria-hidden="true">
-        <span id="slideshow-progress-bar"></span>
-      </div>
-    {% else %}
-      <div class="slideshow-empty">
-        <div class="slideshow-empty-card">
-          <span class="eyebrow">WAITING FOR RESULTS</span>
-          <h2>No live votes yet</h2>
-          <p>Results will appear here as soon as positions and candidates are added and votes are recorded.</p>
+      {% else %}
+        <div class="slideshow-empty">
+          <div class="slideshow-empty-card">
+            <span class="eyebrow">WAITING FOR RESULTS</span>
+            <h2>No live votes yet</h2>
+            <p>Results will appear here as soon as positions and candidates are added and votes are recorded.</p>
+          </div>
         </div>
-      </div>
-    {% endif %}
+      {% endif %}
+    </div>
+    <div class="slideshow-progress" aria-hidden="true">
+      <span id="slideshow-progress-bar"></span>
+    </div>
   </div>
 
   <script>
     (() => {
       const slides = [...document.querySelectorAll('.slideshow-slide')];
       const indicator = document.getElementById('slide-indicator');
-      const progressBar = document.getElementById('slideshow-progress-bar');
+      let progressBar = document.getElementById('slideshow-progress-bar');
+      const stage = document.getElementById('slideshow-stage');
       const slideIntervalMs = 6000;
 
-      if (!slides.length) {
-        return;
-      }
+      let positions = slides;
+      let steps = [];
+      let activeStep = 0;
 
-      let activeIndex = 0;
-
-      function showSlide(index) {
-        activeIndex = (index + slides.length) % slides.length;
-        slides.forEach((slide, slideIndex) => {
-          slide.classList.toggle('is-active', slideIndex === activeIndex);
+      function showStep(index, restartProgress = true) {
+        if (!steps.length) {
+          return;
+        }
+        activeStep = (index + steps.length) % steps.length;
+        const step = steps[activeStep];
+        positions.forEach((position, positionIndex) => {
+          position.classList.toggle('is-active', positionIndex === step.positionIndex);
+        });
+        positions.forEach((position) => {
+          position.querySelectorAll('.slideshow-candidate-page').forEach((page) => {
+            page.classList.toggle('is-active', Number(page.dataset.pageIndex) === step.pageIndex);
+          });
         });
         if (indicator) {
-          indicator.textContent = `${activeIndex + 1} / ${slides.length}`;
+          const title = positions[step.positionIndex].querySelector('.slideshow-position-row h2').textContent;
+          indicator.textContent = step.pageCount > 1
+            ? `${title} · ${step.pageIndex + 1} / ${step.pageCount}`
+            : `${step.positionIndex + 1} / ${positions.length}`;
         }
-        if (progressBar) {
+        if (progressBar && restartProgress) {
+          progressBar.style.transition = 'none';
           progressBar.style.width = '0%';
+          progressBar.getBoundingClientRect();
           requestAnimationFrame(() => {
             progressBar.style.transition = `width ${slideIntervalMs}ms linear`;
             progressBar.style.width = '100%';
@@ -102,11 +115,72 @@
         }
       }
 
-      showSlide(0);
+      function prepareSlideshow(preservePositionId, preservePageIndex = 0, restartProgress = true) {
+        positions = [...stage.querySelectorAll('.slideshow-slide')];
+        steps = [];
+        positions.forEach((position, positionIndex) => {
+          const candidateGrid = position.querySelector('.slideshow-candidates');
+          const candidates = [...candidateGrid.children];
+          candidateGrid.replaceChildren();
+          for (let start = 0; start < candidates.length; start += 2) {
+            const page = document.createElement('div');
+            const pageIndex = start / 2;
+            page.className = 'slideshow-candidate-page';
+            page.dataset.pageIndex = pageIndex;
+            if (candidates.length === 1) {
+              page.classList.add('is-single');
+            }
+            page.append(...candidates.slice(start, start + 2));
+            candidateGrid.append(page);
+            steps.push({
+              positionIndex,
+              pageIndex,
+              pageCount: Math.ceil(candidates.length / 2),
+            });
+          }
+        });
+        const preservedPositionIndex = positions.findIndex(
+          (position) => position.dataset.positionId === preservePositionId
+        );
+        const preservedStep = steps.findIndex(
+          (step) => step.positionIndex === preservedPositionIndex && step.pageIndex === preservePageIndex
+        );
+        activeStep = preservedStep >= 0 ? preservedStep : Math.min(activeStep, steps.length - 1);
+        showStep(activeStep, restartProgress);
+      }
+
+      prepareSlideshow(positions[0]?.dataset.positionId);
       setInterval(() => {
-        showSlide(activeIndex + 1);
+        showStep(activeStep + 1);
       }, slideIntervalMs);
-      window.setTimeout(() => window.location.reload(), 15000);
+
+      async function refreshResults() {
+        try {
+          const response = await fetch(window.location.href, { cache: 'no-store' });
+          if (!response.ok || response.redirected) {
+            throw new Error(`Results refresh failed (${response.status}).`);
+          }
+          const html = await response.text();
+          const template = document.createElement('template');
+          template.innerHTML = html;
+          const updatedStage = template.content.querySelector('#slideshow-stage');
+          if (!updatedStage) {
+            throw new Error('Results refresh returned an invalid slideshow.');
+          }
+          const currentStep = steps[activeStep];
+          const currentPositionId = positions[currentStep?.positionIndex]?.dataset.positionId;
+          const currentPageIndex = currentStep?.pageIndex || 0;
+          stage.innerHTML = updatedStage.innerHTML;
+          progressBar = document.getElementById('slideshow-progress-bar');
+          prepareSlideshow(currentPositionId, currentPageIndex, false);
+        } catch (error) {
+          console.error(error);
+        } finally {
+          window.setTimeout(refreshResults, 15000);
+        }
+      }
+
+      window.setTimeout(refreshResults, 15000);
     })();
   </script>
 </body>
