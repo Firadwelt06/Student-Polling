@@ -1,12 +1,16 @@
+import csv
+import hashlib
+import hmac
 import os
+import re
 import secrets
 import sqlite3
-from io import BytesIO
+from io import BytesIO, StringIO
 from functools import wraps
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, abort, flash, g, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, send_from_directory, session, url_for
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_wtf.csrf import CSRFProtect
@@ -54,6 +58,11 @@ CREATE TABLE IF NOT EXISTS votes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_votes_candidate ON votes(candidate_id);
+
+CREATE TABLE IF NOT EXISTS voter_codes (
+    code_hash TEXT PRIMARY KEY,
+    used INTEGER NOT NULL DEFAULT 0 CHECK (used IN (0, 1))
+);
 """
 
 
@@ -193,6 +202,13 @@ def create_app(test_config=None):
         row = connection.execute("SELECT is_open FROM election WHERE id = 1").fetchone()
         return bool(row["is_open"])
 
+    def voting_code_hash(code):
+        return hmac.new(
+            str(app.config["SECRET_KEY"]).encode("utf-8"),
+            code.encode("ascii"),
+            hashlib.sha256,
+        ).hexdigest()
+
     def active_positions(connection=None):
         connection = connection or get_db()
         return connection.execute(
@@ -272,6 +288,12 @@ def create_app(test_config=None):
                 flash("Voting is not configured yet.", "error")
                 return redirect(url_for("index"))
 
+            code = request.form.get("voting_code", "").strip().replace("-", "").upper()
+            if not re.fullmatch(r"[0-9A-F]{16}", code):
+                db.rollback()
+                flash("Enter a valid voting code.", "error")
+                return redirect(url_for("vote"))
+
             selections = []
             for position in positions:
                 candidate_id = request.form.get(f"position_{position['id']}", type=int)
@@ -284,6 +306,15 @@ def create_app(test_config=None):
                     flash("Choose one valid candidate for every position.", "error")
                     return redirect(url_for("vote"))
                 selections.append((position["id"], candidate["id"]))
+
+            code_cursor = db.execute(
+                "UPDATE voter_codes SET used = 1 WHERE code_hash = ? AND used = 0",
+                (voting_code_hash(code),),
+            )
+            if code_cursor.rowcount != 1:
+                db.rollback()
+                flash("That voting code is invalid or has already been used.", "error")
+                return redirect(url_for("vote"))
 
             ballot_id = secrets.token_urlsafe(24)
             db.executemany(
@@ -343,13 +374,62 @@ def create_app(test_config=None):
             """
         ).fetchall()
         total_ballots = db.execute("SELECT COUNT(DISTINCT ballot_id) FROM votes").fetchone()[0]
+        code_counts = db.execute(
+            "SELECT COUNT(*) AS total, COALESCE(SUM(used), 0) AS used FROM voter_codes"
+        ).fetchone()
         return render_template(
             "admin.html",
             is_open=election_open(db),
             positions=positions,
             candidates=candidates,
             total_ballots=total_ballots,
+            code_counts=code_counts,
         )
+
+    @app.post("/admin/voting-codes")
+    @login_required
+    def generate_voting_codes():
+        db = get_db()
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            if election_open(db):
+                db.rollback()
+                flash("Close voting before generating or replacing voting codes.", "error")
+                return redirect(url_for("admin_dashboard"))
+
+            count = request.form.get("count", type=int)
+            if count is None or not 1 <= count <= 500:
+                db.rollback()
+                flash("Generate between 1 and 500 voting codes at a time.", "error")
+                return redirect(url_for("admin_dashboard"))
+
+            if request.form.get("replace_unused") == "1":
+                db.execute("DELETE FROM voter_codes WHERE used = 0")
+
+            codes = [secrets.token_hex(8).upper() for _ in range(count)]
+            db.executemany(
+                "INSERT INTO voter_codes (code_hash) VALUES (?)",
+                [(voting_code_hash(code),) for code in codes],
+            )
+            db.commit()
+        except sqlite3.Error:
+            db.rollback()
+            app.logger.exception("Could not generate voting codes")
+            abort(500)
+
+        csv_buffer = StringIO(newline="")
+        writer = csv.writer(csv_buffer)
+        writer.writerow(["voting_code"])
+        writer.writerows((code,) for code in codes)
+        response = send_file(
+            BytesIO(csv_buffer.getvalue().encode("utf-8")),
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name="school-poll-voting-codes.csv",
+            max_age=0,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.get("/admin/results")
     @login_required
@@ -421,6 +501,13 @@ def create_app(test_config=None):
             db.execute("BEGIN IMMEDIATE")
             opened = not election_open(db)
             if opened:
+                available_codes = db.execute(
+                    "SELECT COUNT(*) FROM voter_codes WHERE used = 0"
+                ).fetchone()[0]
+                if not available_codes:
+                    db.rollback()
+                    flash("Generate at least one unused voting code before opening voting.", "error")
+                    return redirect(url_for("admin_dashboard"))
                 positions = active_positions(db)
                 positions_without_candidates = db.execute(
                     """
@@ -742,6 +829,7 @@ def create_app(test_config=None):
             ]
             db.execute("UPDATE election SET is_open = 0 WHERE id = 1")
             db.execute("DELETE FROM votes")
+            db.execute("DELETE FROM voter_codes")
             if reset_type in {"candidates", "all"}:
                 db.execute("DELETE FROM candidates")
             if reset_type == "all":
@@ -763,9 +851,9 @@ def create_app(test_config=None):
                 flash("Election data was reset, but some candidate photos could not be removed. Check the server log.", "error")
                 return redirect(url_for("admin_dashboard"))
         messages = {
-            "votes": "Votes cleared. School name, positions, and candidates were kept.",
-            "candidates": "Votes and candidates cleared. School name and positions were kept.",
-            "all": "All election data cleared. The school name was reset to School Poll.",
+            "votes": "Votes and voting codes cleared. School name, positions, and candidates were kept.",
+            "candidates": "Votes, voting codes, and candidates cleared. School name and positions were kept.",
+            "all": "All election data and voting codes cleared. The school name was reset to School Poll.",
         }
         flash(messages[reset_type], "success")
         return redirect(url_for("admin_dashboard"))

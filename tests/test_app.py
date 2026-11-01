@@ -1,7 +1,8 @@
 import os
 import tempfile
 import unittest
-from io import BytesIO
+import csv
+from io import BytesIO, StringIO
 
 os.environ.setdefault("ADMIN_PASSWORD", "test-admin-password-123")
 
@@ -30,12 +31,26 @@ class PollingAppTests(unittest.TestCase):
             }
         )
         self.client = self.app.test_client()
+        self.codes = []
 
     def tearDown(self):
         self.temp_dir.cleanup()
 
     def sign_in(self):
-        return self.client.post("/admin/login", data={"password": "test-admin-password-123"})
+        response = self.client.post("/admin/login", data={"password": "test-admin-password-123"})
+        self.assertEqual(response.status_code, 302)
+        code_response = self.client.post("/admin/voting-codes", data={"count": "5"})
+        self.assertEqual(code_response.status_code, 200)
+        self.codes = [
+            row["voting_code"]
+            for row in csv.DictReader(StringIO(code_response.data.decode("utf-8")))
+        ]
+        return response
+
+    def cast_ballot(self, selections):
+        data = dict(selections)
+        data["voting_code"] = self.codes.pop(0)
+        return self.client.post("/vote", data=data)
 
     def test_admin_builds_ballot_opens_and_views_anonymous_results(self):
         self.sign_in()
@@ -47,7 +62,7 @@ class PollingAppTests(unittest.TestCase):
         ballot = self.client.get("/vote")
         self.assertEqual(ballot.status_code, 200)
         self.assertIn(b"Alex", ballot.data)
-        self.client.post("/vote", data={"position_1": "2"})
+        self.cast_ballot({"position_1": "2"})
 
         dashboard = self.client.get("/admin")
         self.assertEqual(dashboard.status_code, 200)
@@ -68,13 +83,71 @@ class PollingAppTests(unittest.TestCase):
         self.assertNotIn("voter_name", columns)
         self.assertNotIn("student_id", columns)
 
+    def test_voting_codes_are_single_use_and_stored_only_as_hashes(self):
+        self.sign_in()
+        self.client.post("/admin/positions", data={"name": "President"})
+        self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
+        self.client.post("/admin/election/toggle")
+        code = self.codes[0]
+
+        accepted = self.client.post("/vote", data={"position_1": "1", "voting_code": code})
+        self.assertEqual(accepted.status_code, 200)
+        reused = self.client.post("/vote", data={"position_1": "1", "voting_code": code})
+        self.assertEqual(reused.status_code, 302)
+        self.assertIn(b"already been used", self.client.get(reused.location).data)
+
+        with self.app.app_context():
+            from flask import current_app
+            import sqlite3
+
+            connection = sqlite3.connect(current_app.config["DATABASE"])
+            used_code = connection.execute(
+                "SELECT code_hash, used FROM voter_codes WHERE used = 1"
+            ).fetchone()
+            ballot_count = connection.execute(
+                "SELECT COUNT(DISTINCT ballot_id) FROM votes"
+            ).fetchone()[0]
+            connection.close()
+        self.assertNotEqual(used_code[0], code)
+        self.assertEqual(used_code[1], 1)
+        self.assertEqual(ballot_count, 1)
+
+    def test_admin_can_replace_unused_codes_and_download_csv_once(self):
+        self.sign_in()
+        response = self.client.post(
+            "/admin/voting-codes",
+            data={"count": "2", "replace_unused": "1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("no-store", response.headers["Cache-Control"])
+        rows = list(csv.DictReader(StringIO(response.data.decode("utf-8"))))
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(len({row["voting_code"] for row in rows}), 2)
+        dashboard = self.client.get("/admin")
+        self.assertIn(b"Codes available: <strong>2</strong>", dashboard.data)
+
+    def test_election_cannot_open_without_unused_codes(self):
+        self.client.post("/admin/login", data={"password": "test-admin-password-123"})
+        self.client.post("/admin/positions", data={"name": "President"})
+        self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
+
+        self.client.post("/admin/election/toggle")
+        dashboard = self.client.get("/admin")
+        self.assertIn(b"Generate at least one unused voting code", dashboard.data)
+        self.assertIn(b">Closed</strong>", dashboard.data)
+
+        self.client.post("/admin/voting-codes", data={"count": "1"})
+        self.client.post("/admin/election/toggle")
+        dashboard = self.client.get("/admin")
+        self.assertIn(b">Open</strong>", dashboard.data)
+
     def test_live_tally_refreshes_and_renaming_keeps_votes(self):
         self.sign_in()
         self.client.post("/admin/positions", data={"name": "President"})
         self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
         self.client.post("/admin/candidates", data={"name": "Jordan", "position_id": "1"})
         self.client.post("/admin/election/toggle")
-        self.client.post("/vote", data={"position_1": "1"})
+        self.cast_ballot({"position_1": "1"})
 
         live_tally = self.client.get("/admin/results/live")
         self.assertIn(b"ANONYMOUS BALLOTS", live_tally.data)
@@ -97,7 +170,7 @@ class PollingAppTests(unittest.TestCase):
         self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
         self.client.post("/admin/candidates", data={"name": "Jordan", "position_id": "1"})
         self.client.post("/admin/election/toggle")
-        self.client.post("/vote", data={"position_1": "1"})
+        self.cast_ballot({"position_1": "1"})
 
         slideshow = self.client.get("/admin/results/slideshow")
         self.assertEqual(slideshow.status_code, 200)
@@ -142,7 +215,7 @@ class PollingAppTests(unittest.TestCase):
         self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
         self.client.post("/admin/candidates", data={"name": "Jordan", "position_id": "2"})
         self.client.post("/admin/election/toggle")
-        self.client.post("/vote", data={"position_1": "1", "position_2": "2"})
+        self.cast_ballot({"position_1": "1", "position_2": "2"})
         self.client.post("/admin/election/toggle")
 
         response = self.client.post("/admin/candidates/1/move", data={"position_id": "2"})
@@ -161,11 +234,15 @@ class PollingAppTests(unittest.TestCase):
         self.client.post("/admin/candidates", data={"name": "Taylor", "position_id": "2"})
         self.client.post("/admin/election/toggle")
 
-        missing = self.client.post("/vote", data={"position_1": "1"})
+        missing = self.client.post(
+            "/vote", data={"position_1": "1", "voting_code": self.codes[0]}
+        )
         self.assertEqual(missing.status_code, 302)
-        wrong_position = self.client.post("/vote", data={"position_1": "2", "position_2": "2"})
+        wrong_position = self.client.post(
+            "/vote", data={"position_1": "2", "position_2": "2", "voting_code": self.codes[0]}
+        )
         self.assertEqual(wrong_position.status_code, 302)
-        accepted = self.client.post("/vote", data={"position_1": "1", "position_2": "2"})
+        accepted = self.cast_ballot({"position_1": "1", "position_2": "2"})
         self.assertEqual(accepted.status_code, 200)
         with self.app.app_context():
             from flask import current_app
@@ -180,7 +257,7 @@ class PollingAppTests(unittest.TestCase):
 
     def test_closed_election_rejects_ballot_submission(self):
         self.sign_in()
-        response = self.client.post("/vote", data={"position_1": "1"})
+        response = self.client.post("/vote", data={"position_1": "1", "voting_code": self.codes[0]})
         self.assertEqual(response.status_code, 302)
 
     def test_election_cannot_open_until_every_position_has_a_candidate(self):
@@ -288,7 +365,7 @@ class PollingAppTests(unittest.TestCase):
         self.client.post("/admin/positions", data={"name": "President"})
         self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
         self.client.post("/admin/election/toggle")
-        self.client.post("/vote", data={"position_1": "1"})
+        self.cast_ballot({"position_1": "1"})
 
         response = self.client.post("/admin/election/reset", data={"reset_type": "votes"})
         self.assertEqual(response.status_code, 302)
@@ -296,8 +373,9 @@ class PollingAppTests(unittest.TestCase):
         self.assertIn(b"North High", dashboard.data)
         self.assertIn(b"Alex", dashboard.data)
         self.assertIn(b">Closed</strong>", dashboard.data)
-        self.assertIn(b"Votes cleared", dashboard.data)
+        self.assertIn(b"Votes and voting codes cleared", dashboard.data)
         self.assertIn(b">0</strong>", dashboard.data)
+        self.assertIn(b"Codes available: <strong>0</strong>", dashboard.data)
 
     def test_reset_candidates_keeps_positions_and_school_name(self):
         self.sign_in()

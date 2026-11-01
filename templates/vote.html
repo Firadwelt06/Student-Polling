@@ -19,10 +19,15 @@
     <div class="form-heading">
       <span class="eyebrow">YOUR BALLOT</span>
       <h1>Make your choices</h1>
-      <p>Choose one candidate for each position. Your selections are submitted together.</p>
+      <p>Enter your one-time voting code, then choose one candidate for each position. Your selections are submitted together.</p>
     </div>
     <form class="ballot-form" method="post" action="{{ url_for('vote') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <fieldset class="position-card code-card">
+        <label for="voting-code">One-time voting code</label>
+        <input id="voting-code" name="voting_code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="19" pattern="[0-9A-Fa-f-]{16,19}" required>
+        <p class="form-hint">Your code is checked to prevent reuse, but is not stored with your ballot.</p>
+      </fieldset>
       {% for position in positions %}
         <fieldset class="position-card">
           <legend><span class="position-number">{{ "%02d"|format(loop.index) }}</span>{{ position.name }}</legend>
@@ -41,7 +46,7 @@
         </fieldset>
       {% endfor %}
       <div class="submit-area">
-        <p>Your ballot is anonymous. Please review your choices before submitting.</p>
+        <p>Your ballot is anonymous. The code only verifies that it has not already been used; it is not linked to your choices. Please review your choices before submitting.</p>
         <button class="button button-primary" type="submit">Submit my ballot <span aria-hidden="true">→</span></button>
       </div>
     </form>

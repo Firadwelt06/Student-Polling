@@ -116,6 +116,14 @@ input:focus, select:focus { border-color: #71a987; box-shadow: 0 0 0 3px #e7f3ea
 .school-settings .panel-heading { margin-bottom: 12px; }
 .school-settings .inline-form { max-width: 540px; }
 .settings-help { margin: 10px 0 0; color: var(--muted); font-size: 11px; }
+.code-panel .panel-heading { margin-bottom: 10px; }
+.code-generation-form { flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.code-generation-form > label:first-of-type { font-size: 11px; font-weight: 700; }
+.code-generation-form #code-count { width: 90px; }
+.code-generation-form .code-replace-option { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
+.code-generation-form .code-replace-option input { width: auto; min-height: auto; }
+.code-card label { display: block; font-size: 12px; font-weight: 700; }
+.code-card input { margin-top: 8px; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 18px; }
 .panel-heading .eyebrow { margin-bottom: 5px; }
 .panel-heading h2 { margin: 0; font-size: 18px; letter-spacing: -.5px; }

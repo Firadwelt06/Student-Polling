@@ -1,0 +1,59 @@
+School Poll Commercial License (Draft)
+
+This plain-language draft is not legal advice or a substitute for a signed
+agreement. Before using it for sales, identify the copyright owner as the
+Licensor, complete the purchaser and purchase details, and have a lawyer
+review the terms for the places where the product will be sold. The seller
+must own or otherwise have permission to commercially license all included
+materials.
+
+1. License grant
+
+After payment, the Licensor grants the purchaser ("Licensee") a non-exclusive,
+non-transferable license to install, run, and internally modify one copy of
+School Poll for use by one school at one campus location. The Licensee may
+make reasonable backup copies and allow its employees or authorized volunteers
+to operate that installation for the school's internal polling.
+
+2. Restrictions
+
+The Licensee may not redistribute, publish, sublicense, rent, lease, or resell
+the application or its source code; provide it as a service to other
+organizations; or use the license for additional schools, campuses, or
+locations. Each additional school or campus requires a separate license.
+Internal modifications do not change these restrictions.
+
+3. Ownership and duration
+
+The Licensor retains ownership of the application and its intellectual
+property. Third-party dependencies remain subject to their own licenses, and
+photos, trademarks, and other content supplied by the Licensee or another
+party are not included in this license. The license is effective after payment
+and continues for the licensed copy unless terminated for a material breach of
+these terms. The Licensee must stop using the application if the license is
+terminated.
+
+4. No included services
+
+Unless the purchase agreement says otherwise, the purchase does not include
+installation, hosting, support, maintenance, updates, or custom development.
+
+5. Product scope
+
+School Poll uses one-time codes to limit reuse of an issued code. It does not
+verify voter identity and cannot prevent code sharing or extra codes from
+being issued. The Licensee is responsible for deciding whether it is suitable
+for its polling needs and for protecting voter-code files, application data,
+and server access.
+
+6. Additional terms
+
+The seller and purchaser should separately agree in writing on the purchase
+price, applicable taxes, refunds, warranty, liability, governing law, and any
+mandatory consumer or education-sector terms. Nothing in this draft waives
+rights that cannot legally be waived.
+
+Purchaser / Licensee: __________________________________
+Licensed school and campus: ____________________________
+Purchase reference and date: ___________________________
+Licensor / seller: _____________________________________
