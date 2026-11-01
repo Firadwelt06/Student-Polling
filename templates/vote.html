@@ -25,8 +25,8 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <fieldset class="position-card code-card">
         <label for="voting-code">One-time voting code</label>
-        <input id="voting-code" name="voting_code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="19" pattern="[0-9A-Fa-f-]{16,19}" required>
-        <p class="form-hint">Your code is checked to prevent reuse, but is not stored with your ballot.</p>
+        <input id="voting-code" name="voting_code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="16" pattern="(?:[A-HJ-NP-Za-hj-np-z]{5}|[0-9A-Fa-f]{16})" placeholder="ABCDE" title="Enter your 5-letter code. Codes previously issued in the longer format are also accepted." required>
+        <p class="form-hint">New codes are five letters; I and O are omitted to avoid confusion. Your code is checked to prevent reuse, but is not stored with your ballot.</p>
       </fieldset>
       {% for position in positions %}
         <fieldset class="position-card">

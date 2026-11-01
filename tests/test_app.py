@@ -2,6 +2,10 @@ import os
 import tempfile
 import unittest
 import csv
+import hashlib
+import hmac
+import secrets
+import sqlite3
 from io import BytesIO, StringIO
 
 os.environ.setdefault("ADMIN_PASSWORD", "test-admin-password-123")
@@ -123,8 +127,53 @@ class PollingAppTests(unittest.TestCase):
         rows = list(csv.DictReader(StringIO(response.data.decode("utf-8"))))
         self.assertEqual(len(rows), 2)
         self.assertEqual(len({row["voting_code"] for row in rows}), 2)
+        for row in rows:
+            code = row["voting_code"]
+            self.assertRegex(code, r"^[A-HJ-NP-Z]{5}$")
+            self.assertNotIn("I", code)
+            self.assertNotIn("O", code)
         dashboard = self.client.get("/admin")
         self.assertIn(b"Codes available: <strong>2</strong>", dashboard.data)
+
+    def test_previously_issued_long_voting_code_remains_valid(self):
+        self.sign_in()
+        self.client.post("/admin/positions", data={"name": "President"})
+        self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
+        legacy_code = secrets.token_hex(8).upper()
+        digest = hmac.new(
+            self.app.config["SECRET_KEY"].encode("utf-8"),
+            legacy_code.encode("ascii"),
+            hashlib.sha256,
+        ).hexdigest()
+        with self.app.app_context():
+            from flask import current_app
+
+            connection = sqlite3.connect(current_app.config["DATABASE"])
+            connection.execute(
+                "INSERT INTO voter_codes (code_hash) VALUES (?)", (digest,)
+            )
+            connection.commit()
+            connection.close()
+
+        self.client.post("/admin/election/toggle")
+        response = self.client.post(
+            "/vote", data={"position_1": "1", "voting_code": legacy_code}
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_vote_post_attempts_are_rate_limited_without_throttling_ballot_page(self):
+        self.sign_in()
+        self.client.post("/admin/positions", data={"name": "President"})
+        self.client.post("/admin/candidates", data={"name": "Alex", "position_id": "1"})
+        self.client.post("/admin/election/toggle")
+
+        self.assertEqual(self.client.get("/vote").status_code, 200)
+        responses = [
+            self.client.post("/vote", data={"position_1": "1", "voting_code": "AAAAA"})
+            for _ in range(11)
+        ]
+        self.assertEqual(responses[-1].status_code, 429)
+        self.assertEqual(self.client.get("/vote").status_code, 200)
 
     def test_election_cannot_open_without_unused_codes(self):
         self.client.post("/admin/login", data={"password": "test-admin-password-123"})

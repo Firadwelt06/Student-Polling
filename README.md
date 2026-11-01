@@ -5,7 +5,8 @@ A locally hosted Flask application for secondary-school elections. Administrator
 ## Privacy and voting behavior
 
 - The ballot does not ask for or store a voter's name, student ID, email, or other voter identity.
-- Each ballot requires a random one-time voting code. The app stores only a keyed hash of each code and marks it used in the same database transaction that saves the complete ballot; the code is not stored with the selections.
+- Each ballot requires a random one-time voting code. New codes are five uppercase letters, omitting I and O to reduce typing confusion. The app stores only a keyed hash of each code and marks it used in the same database transaction that saves the complete ballot; the code is not stored with the selections. Previously issued 16-character codes remain valid until used or replaced.
+- Short codes are easier to enter but easier to guess than long codes. Ballot submissions are limited to 10 attempts per minute per source IP as a basic guessing deterrent. Use this feature only for low-stakes polls on a trusted local network, not as secure identity verification or on a public internet-facing server.
 - Codes prevent reuse of the same issued code, but they do not verify a voter's identity or stop code sharing, someone receiving multiple codes, or an administrator issuing extra codes. Distribute one code to each eligible voter.
 - The code and ballot are stored separately, but this is not a guarantee of absolute anonymity. Server access logs, timing, or other operational data could potentially correlate activity. Avoid collecting identifying request logs and restrict database and server access.
 - A random, non-identifying ballot reference groups the selections in one submission and is not shown to the voter.
@@ -62,7 +63,7 @@ Create a private `.env` file with `ADMIN_PASSWORD` and `SECRET_KEY` values first
 
 Close voting before changing the ballot. Administrators can rename positions and candidates or move candidates to another position while voting is closed. Renames preserve existing vote counts, while candidates with recorded votes cannot be moved or deleted, which protects the published tally.
 
-Administrators can generate up to 500 codes per batch. **Replace all unused codes** revokes the existing unused codes before issuing a new batch; already-used codes stay marked used. Keep exported code files private and delete them securely after distribution. Closing voting does not invalidate unspent codes.
+Administrators can generate up to 500 five-letter codes per batch. **Replace all unused codes** revokes existing unused codes—including previously issued 16-character codes—before issuing a new batch; already-used codes stay marked used. Keep exported code files private and delete them securely after distribution. Closing voting does not invalidate unspent codes.
 
 ## Preparing for another election
 

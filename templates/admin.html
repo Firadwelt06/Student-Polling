@@ -27,7 +27,7 @@
   </div>
   <section class="panel code-panel">
     <div class="panel-heading"><div><span class="eyebrow">VOTER ACCESS</span><h2>One-time voting codes</h2></div></div>
-    <p class="settings-help">Codes available: <strong>{{ code_counts.total - code_counts.used }}</strong> · Used: <strong>{{ code_counts.used }}</strong>. Codes are stored as hashes and never shown again after download.</p>
+    <p class="settings-help">Codes available: <strong>{{ code_counts.total - code_counts.used }}</strong> · Used: <strong>{{ code_counts.used }}</strong>. New codes are five letters (excluding I and O). Codes are stored as hashes and never shown again after download.</p>
     {% if not is_open %}
       <form class="inline-form code-generation-form" method="post" action="{{ url_for('generate_voting_codes') }}" onsubmit="return !this.querySelector('[name=replace_unused]').checked || confirm('This revokes every unused code, including any already distributed. Continue?');">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -36,7 +36,7 @@
         <button class="button button-secondary" type="submit">Generate and download CSV</button>
         <label class="code-replace-option"><input name="replace_unused" type="checkbox" value="1"> Replace all unused codes</label>
       </form>
-      <p class="settings-help">Distribute one code per eligible voter. Keep the downloaded CSV private; it is not recoverable from the app. A code is consumed only when a complete ballot is accepted.</p>
+      <p class="settings-help">Distribute one code per eligible voter. Keep the downloaded CSV private; it is not recoverable from the app. A code is consumed only when a complete ballot is accepted. Previously issued longer codes remain valid until used or replaced.</p>
     {% else %}
       <p class="notice">Close voting to generate or replace codes.</p>
     {% endif %}

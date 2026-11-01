@@ -20,6 +20,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
+VOTING_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+VOTING_CODE_PATTERN = re.compile(r"(?:[A-HJ-NP-Z]{5}|[0-9A-F]{16})")
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS election (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -253,6 +255,7 @@ def create_app(test_config=None):
         return render_template("index.html", is_open=election_open())
 
     @app.route("/vote", methods=["GET", "POST"])
+    @limiter.limit("10 per minute", methods=["POST"])
     def vote():
         if request.method == "GET":
             db = get_db()
@@ -288,8 +291,8 @@ def create_app(test_config=None):
                 flash("Voting is not configured yet.", "error")
                 return redirect(url_for("index"))
 
-            code = request.form.get("voting_code", "").strip().replace("-", "").upper()
-            if not re.fullmatch(r"[0-9A-F]{16}", code):
+            code = request.form.get("voting_code", "").strip().upper()
+            if not VOTING_CODE_PATTERN.fullmatch(code):
                 db.rollback()
                 flash("Enter a valid voting code.", "error")
                 return redirect(url_for("vote"))
@@ -406,11 +409,15 @@ def create_app(test_config=None):
             if request.form.get("replace_unused") == "1":
                 db.execute("DELETE FROM voter_codes WHERE used = 0")
 
-            codes = [secrets.token_hex(8).upper() for _ in range(count)]
-            db.executemany(
-                "INSERT INTO voter_codes (code_hash) VALUES (?)",
-                [(voting_code_hash(code),) for code in codes],
-            )
+            codes = []
+            while len(codes) < count:
+                code = "".join(secrets.choice(VOTING_CODE_ALPHABET) for _ in range(5))
+                cursor = db.execute(
+                    "INSERT OR IGNORE INTO voter_codes (code_hash) VALUES (?)",
+                    (voting_code_hash(code),),
+                )
+                if cursor.rowcount:
+                    codes.append(code)
             db.commit()
         except sqlite3.Error:
             db.rollback()
